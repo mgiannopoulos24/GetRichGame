@@ -1,0 +1,14 @@
+# Frontend files
+node_modules/
+
+
+# Backend files
+env/
+__pycache__/
+*.sqlite3
+
+# Other files
+.env
+.env.local
+.env.production
+.vscode/
