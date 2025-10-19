@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import routes from './routes/routes';
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
 function App() {
     return (
         <>
-            <h1 className="text-3xl font-bold underline">Hello world!</h1>
+            <Router>
+                <Routes>
+                    {routes.map((route, index) => (
+                        <Route key={index} path={route.path} element={route.element} />
+                    ))}
+                </Routes>
+            </Router>
         </>
     );
 }
