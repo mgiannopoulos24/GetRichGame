@@ -26,8 +26,7 @@ source venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
-5. Start the Django development server:
+5. Start the Uvicorn development server:
 ```bash
-python manage.py migrate # Also creates the db.sqlite3 file
-daphne -p 8000 game_backend.asgi:application # Starts the backend server
+uvicorn main:app --reload
 ```
