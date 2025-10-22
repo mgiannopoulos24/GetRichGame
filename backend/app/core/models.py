@@ -25,3 +25,10 @@ class EchoResponse(BaseWsMessage):
         description="The original message received from the client."
     )
     server_response: str = Field(description="The server's processed response.")
+
+
+# NEW: Model for the room creation response
+class RoomCreationResponse(BaseModel):
+    room_id: str = Field(
+        description="The unique identifier for the newly created room."
+    )
