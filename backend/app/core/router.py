@@ -1,6 +1,6 @@
 import json
-import secrets  # New import for secure ID generation
-import string  # New import for ID generation
+import secrets
+import string
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status, Query
 from fastapi.responses import PlainTextResponse, JSONResponse
@@ -52,7 +52,7 @@ def health_check():
 @router.websocket("/ws/game/")
 async def websocket_endpoint(
     websocket: WebSocket,
-    room_id: str = Query(..., min_length=5, max_length=5, regex="^[A-Z0-9]{5}$"),
+    room_id: str = Query(..., min_length=5, max_length=5, regex="^[a-zA-Z0-9]{5}$"),
 ):
 
     print(f"Attempting connection for room: {room_id}")
