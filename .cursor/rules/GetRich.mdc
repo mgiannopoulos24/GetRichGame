@@ -1,0 +1,293 @@
+---
+alwaysApply: true
+---
+
+## 🧭 Project Overview
+
+This is a full-stack real-time multiplayer board game (Richup.io clone).
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Framer Motion, React Router v6
+- **Backend:** Django 5, Django Channels 4, Django REST Framework, PostgreSQL, Redis
+- **Protocol:** REST for lobby/auth, WebSocket (JSON messages) for live game state
+- **The backend is the single source of truth for ALL game state.**
+
+---
+
+## 📁 File & Folder Conventions
+
+### Frontend (`frontend/src/`)
+- `pages/` — Top-level route components only. No business logic. Keep them thin.
+- `components/ui/` — shadcn/ui primitives. Do not modify these directly.
+- `components/game/` — Game-specific presentational components (board, tile, token, dice).
+- `components/lobby/` — Lobby and room management components.
+- `hooks/` — Custom React hooks. One hook per file. Named `use<Feature>.ts`.
+- `store/` — Zustand stores. One store per domain. Named `use<Domain>Store.ts`.
+- `types/` — TypeScript interfaces and enums shared across the frontend. No logic here.
+- `lib/` — Pure utility functions. Must be side-effect free and unit testable.
+- `routes/` — React Router configuration only.
+
+### Backend (`backend/`)
+- `config/` — Django project settings, urls, asgi, wsgi. No app logic here.
+- `apps/<app>/` — Each Django app is a focused domain: `rooms`, `game`, `accounts`.
+  - `models.py` — Django ORM models. Keep methods small.
+  - `views.py` — DRF views / viewsets for REST endpoints.
+  - `consumers.py` — Django Channels WebSocket consumers.
+  - `serializers.py` — DRF serializers. Validate ALL input here.
+  - `routing.py` — WebSocket URL routing for the app.
+  - `urls.py` — REST URL routing for the app.
+  - `services.py` — Business logic layer. Views/consumers call services, not models directly.
+  - `tests/` — Tests mirroring the app structure.
+
+---
+
+## 🔤 Naming Conventions
+
+### TypeScript / React
+- Components: `PascalCase` (`GameBoard`, `PlayerToken`, `DiceRoller`)
+- Hooks: `camelCase` prefixed with `use` (`useWebSocket`, `useGameState`)
+- Zustand stores: `camelCase` prefixed with `use`, suffixed with `Store` (`useGameStore`)
+- Types / Interfaces: `PascalCase`, no `I` prefix (`GameState`, `Player`, `Tile`)
+- Enums: `PascalCase` name, `SCREAMING_SNAKE_CASE` values (`TileType.GO_TO_JAIL`)
+- Constants: `SCREAMING_SNAKE_CASE` in dedicated `constants.ts` files
+- Event handlers: prefix with `handle` (`handleRollDice`, `handleBuyProperty`)
+- Boolean variables/props: prefix with `is`, `has`, `can` (`isMyTurn`, `hasJailCard`)
+
+### Python / Django
+- Models: `PascalCase`, singular (`Room`, `GameState`, `Player`)
+- Views / Consumers: `PascalCase` with suffix (`RoomListView`, `GameConsumer`)
+- Serializers: `PascalCase` with `Serializer` suffix (`RoomSerializer`)
+- Services: `snake_case` functions in `services.py` (`create_room`, `process_roll`)
+- URL names: `kebab-case` (`room-list`, `room-detail`)
+- Constants: `SCREAMING_SNAKE_CASE` in `constants.py`
+- Test files: `test_<module>.py` (`test_views.py`, `test_consumers.py`, `test_services.py`)
+
+---
+
+## 🖥️ Frontend Rules
+
+### General
+- **Never put game logic in components.** All game rules live in the backend. The frontend only renders state and dispatches events.
+- **No `any` type.** Use `unknown` with type narrowing if the type is truly dynamic.
+- **No `console.log` in committed code.** Use `console.warn`/`console.error` only for genuine errors.
+- **No inline styles.** Use Tailwind classes or CSS variables. If you need dynamic styles, use `clsx`/`cn`.
+- **All magic numbers go in constants files.** No literal `40`, `200`, `50` scattered in code — use `BOARD_TILE_COUNT`, `GO_REWARD`, `JAIL_FINE`.
+
+### Components
+- Prefer functional components. Never use class components.
+- Keep components focused. If a component exceeds ~150 lines, split it.
+- All props must be explicitly typed with an interface above the component.
+- Avoid prop drilling beyond 2 levels — use Zustand store or context.
+- Wrap expensive renders in `React.memo`. Wrap callbacks in `useCallback` when passed as props.
+
+```tsx
+// ✅ Good
+interface PlayerTokenProps {
+  playerId: string;
+  position: number;
+  color: string;
+  isCurrentPlayer: boolean;
+}
+
+const PlayerToken: React.FC<PlayerTokenProps> = ({ playerId, position, color, isCurrentPlayer }) => {
+  // ...
+};
+
+export default PlayerToken;
+
+// ❌ Bad
+const PlayerToken = (props: any) => { ... }
+```
+
+### Hooks
+- One responsibility per hook.
+- Always clean up side effects in the return function of `useEffect`.
+- The `useWebSocket` hook owns the WS connection lifecycle. Do not create WebSocket instances anywhere else.
+
+```ts
+// ✅ useWebSocket pattern
+export const useWebSocket = (roomId: string) => {
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const ws = new WebSocket(getWsUrl(roomId));
+    wsRef.current = ws;
+    // ...attach handlers
+    return () => ws.close(); // always clean up
+  }, [roomId]);
+
+  const send = useCallback((msg: ClientMessage) => {
+    wsRef.current?.send(JSON.stringify(msg));
+  }, []);
+
+  return { send };
+};
+```
+
+### State Management (Zustand)
+- One store per domain: `useGameStore`, `useRoomStore`, `useAuthStore`.
+- Never fetch data inside a store action. Fetch in hooks, pass data to store actions.
+- Actions should be synchronous where possible; handle async in hooks.
+
+### API Calls
+- All REST calls go through a centralized `lib/api.ts` module — no raw `fetch` in components.
+- Use the `VITE_API_BASE_URL` env variable exclusively. Never hardcode `localhost:8000`.
+
+```ts
+// ✅ lib/api.ts pattern
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+export const createRoom = async (): Promise<{ room_id: string }> => {
+  const res = await fetch(`${BASE_URL}/api/v1/rooms/create/`, { method: 'POST' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+};
+```
+
+### WebSocket Messages
+- All WS message types must be defined in `types/ws.ts`.
+- Use a discriminated union for the `ServerMessage` type:
+
+```ts
+// types/ws.ts
+export type ServerMessage =
+  | { type: 'game_state'; state: GameState }
+  | { type: 'player_joined'; player: Player }
+  | { type: 'error'; code: string; message: string };
+```
+
+---
+
+## 🐍 Backend Rules
+
+### General
+- **All game rules are enforced server-side.** Never trust client input.
+- **Services layer is mandatory for business logic.** Views call services. Services call models.
+- **Never write raw SQL.** Use the Django ORM. Annotate queries when needed for performance.
+- **Never expose internal IDs in APIs.** Use UUIDs for all public-facing identifiers.
+- **Always use serializers to validate input.** Never access `request.data` directly in a view.
+
+### Models
+- Every model must have `created_at` and `updated_at` auto fields.
+- Use `uuid` as the primary key for all models exposed via API.
+- Add `__str__` method to every model.
+
+```python
+# ✅ Good model
+import uuid
+from django.db import models
+
+class Room(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=8, unique=True)
+    status = models.CharField(max_length=20, choices=RoomStatus.choices, default=RoomStatus.WAITING)
+    max_players = models.PositiveSmallIntegerField(default=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"Room {self.code} ({self.status})"
+```
+
+### Views (DRF)
+- Use `APIView` for simple endpoints, `ModelViewSet` for CRUD resources.
+- Always specify `permission_classes` explicitly — never rely on defaults silently.
+- Return appropriate HTTP status codes (`201` for created, `400` for bad input, `404` for not found).
+
+### WebSocket Consumers
+- Inherit from `AsyncJsonWebsocketConsumer` (never the sync variant).
+- Every `receive_json` handler must validate the incoming payload with a serializer or dataclass before processing.
+- Always handle `WebSocketDisconnect` gracefully (remove player from room group).
+- Broadcast game state changes after every action using `self.channel_layer.group_send`.
+
+```python
+# ✅ Consumer pattern
+class GameConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        self.room_code = self.scope['url_route']['kwargs']['room_code']
+        self.room_group_name = f'game_{self.room_code}'
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+
+    async def receive_json(self, content):
+        action_type = content.get('type')
+        # Dispatch to handler
+        handler = getattr(self, f'handle_{action_type}', None)
+        if handler:
+            await handler(content)
+        else:
+            await self.send_json({'type': 'error', 'code': 'UNKNOWN_ACTION'})
+
+    async def game_message(self, event):
+        await self.send_json(event['message'])
+```
+
+### Settings
+- Never import settings directly with `from django.conf import settings` in apps — pass values through function arguments or service constructors.
+- Split settings into `base.py`, `development.py`, `production.py`.
+- All secrets come from environment variables via `django-environ`. No hardcoded secrets anywhere.
+
+### Tests
+- Every service function must have a unit test.
+- Every REST endpoint must have an integration test.
+- Every WebSocket consumer must have a test using `channels.testing.WebsocketCommunicator`.
+- Test file naming: `test_<module>.py`. Test class naming: `Test<Feature>`.
+
+---
+
+## 🔌 WebSocket Protocol Rules
+
+- Every message (client → server and server → client) must have a `type: string` field.
+- Server messages that change game state must always include the full updated `game_state` object, not just a delta.
+- Error messages must follow: `{ "type": "error", "code": "SNAKE_CASE_CODE", "message": "Human readable" }`.
+- Client messages that require a turn must be rejected with `NOT_YOUR_TURN` if it's not the sender's turn.
+- The server must never send sensitive data of one player to another (e.g., hidden cards).
+
+---
+
+## 🐳 Docker & Environment Rules
+
+- Never commit `.env` files. Only commit `.env.example` with placeholder values.
+- All service names in `docker-compose.yml` must match what the backend expects in env vars (e.g., `redis`, `db`).
+- Use multi-stage Docker builds for production frontend images to minimize image size.
+- Backend `Dockerfile` must run as a non-root user in production.
+
+---
+
+## 🚀 Git & Commit Rules
+
+- Branch naming: `feat/<short-description>`, `fix/<short-description>`, `chore/<short-description>`
+- Commit messages follow Conventional Commits:
+  - `feat: add property upgrade action`
+  - `fix: correct rent calculation for hotels`
+  - `chore: update dependencies`
+  - `refactor: extract game engine to services layer`
+  - `test: add consumer tests for roll_dice action`
+  - `docs: update WebSocket protocol in README`
+- Never commit directly to `main`. Use pull requests.
+- Every PR must have a description explaining what changed and why.
+
+---
+
+## ⚠️ Things to Never Do
+
+- ❌ Never trust client-sent `player_id` — always derive it from the authenticated session/token.
+- ❌ Never store game state only in memory (Django process restarts will wipe it) — persist to Redis or DB.
+- ❌ Never put secrets in code or version control.
+- ❌ Never use `any` in TypeScript.
+- ❌ Never perform game actions inside React components — dispatch WS messages and let the server respond.
+- ❌ Never write business logic in Django views — use the services layer.
+- ❌ Never expose stack traces to API clients in production.
+- ❌ Never skip serializer validation in consumers or views.
+- ❌ Never block the async event loop in Django Channels consumers (no synchronous DB calls — use `database_sync_to_async`).
+
+```python
+# ✅ Correct async DB access in consumers
+from channels.db import database_sync_to_async
+
+class GameConsumer(AsyncJsonWebsocketConsumer):
+    async def handle_buy_property(self, content):
+        room = await database_sync_to_async(Room.objects.get)(code=self.room_code)
+        # ...
+```
