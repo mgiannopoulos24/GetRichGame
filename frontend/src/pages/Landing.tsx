@@ -3,15 +3,7 @@ import { ArrowRight, Github, ListChecks, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-// New Import
-import { Room } from '@/pages/Room';
-
-const rules = [
-    'Rule 1: All players start with an equal amount of resources.',
-    'Rule 2: Turns are taken in a clockwise direction.',
-    'Rule 3: The goal is to collect 5 victory points before any other player.',
-    'Rule 4: Trading is allowed only during your turn and must be a 1:1 resource exchange.',
-];
+import { GAME_RULES } from '@/lib/constants';
 
 // Use a constant for the API base URL.
 // In a production setup, this will be handled by a reverse proxy or environment variable.
@@ -26,7 +18,6 @@ export const Landing: React.FC = () => {
 
     const handlePlayNow = async () => {
         setIsLoading(true);
-        console.log('Requesting new room ID from backend...');
 
         try {
             // Use the API_BASE_URL constant
@@ -44,7 +35,6 @@ export const Landing: React.FC = () => {
             const data = await response.json();
             const roomId = data.room_id;
 
-            console.log(`Backend responded with Room ID: ${roomId}. Redirecting...`);
             navigate(`/room/${roomId}`);
         } catch (error) {
             console.error('Failed to create room:', error);
@@ -55,10 +45,37 @@ export const Landing: React.FC = () => {
         }
     };
 
+    const handleAllRooms = () => {
+        navigate('/rooms');
+    };
+
+    const handlePrivateRoom = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/rooms/create/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = (await response.json()) as { room_id: string };
+            const inviteUrl = `${window.location.origin}/room/${data.room_id}`;
+            await navigator.clipboard.writeText(inviteUrl);
+            navigate(`/room/${data.room_id}`);
+        } catch (error) {
+            console.error('Failed to create private room:', error);
+            alert('Could not create private room.');
+            setIsLoading(false);
+        }
+    };
+
     const pageAnimation = {
         initial: { opacity: 0, scale: 0.98 },
         animate: { opacity: 1, scale: 1 },
-        transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+        transition: { duration: 0.6 },
     };
 
     return (
@@ -103,7 +120,7 @@ export const Landing: React.FC = () => {
                                 variant="outline"
                                 size="lg"
                                 className="text-black"
-                                onClick={() => console.log('Viewing All Available Rooms...')}
+                                onClick={handleAllRooms}
                             >
                                 <Users className="mr-2 h-4 w-4" />
                                 All Rooms
@@ -113,7 +130,8 @@ export const Landing: React.FC = () => {
                                 variant="ghost"
                                 size="lg"
                                 className="text-base"
-                                onClick={() => console.log('Creating a Private Room...')}
+                                onClick={handlePrivateRoom}
+                                disabled={isLoading}
                             >
                                 Private Room
                             </Button>
@@ -129,7 +147,7 @@ export const Landing: React.FC = () => {
                         </h3>
 
                         <div className="grid md:grid-cols-2 gap-8">
-                            {rules.map((rule, index) => (
+                            {GAME_RULES.map((rule, index) => (
                                 <div
                                     key={index}
                                     className="bg-gray-700 p-6 rounded-xl shadow-md hover:shadow-lg transition duration-300"

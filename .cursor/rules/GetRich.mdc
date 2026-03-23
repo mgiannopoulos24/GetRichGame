@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 
-## 🧭 Project Overview
+## Project Overview
 
 This is a full-stack real-time multiplayer board game (Richup.io clone).
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Framer Motion, React Router v6
@@ -12,7 +12,7 @@ This is a full-stack real-time multiplayer board game (Richup.io clone).
 
 ---
 
-## 📁 File & Folder Conventions
+## File & Folder Conventions
 
 ### Frontend (`frontend/src/`)
 - `pages/` — Top-level route components only. No business logic. Keep them thin.
@@ -39,7 +39,7 @@ This is a full-stack real-time multiplayer board game (Richup.io clone).
 
 ---
 
-## 🔤 Naming Conventions
+## Naming Conventions
 
 ### TypeScript / React
 - Components: `PascalCase` (`GameBoard`, `PlayerToken`, `DiceRoller`)
@@ -62,7 +62,7 @@ This is a full-stack real-time multiplayer board game (Richup.io clone).
 
 ---
 
-## 🖥️ Frontend Rules
+## Frontend Rules
 
 ### General
 - **Never put game logic in components.** All game rules live in the backend. The frontend only renders state and dispatches events.
@@ -79,7 +79,7 @@ This is a full-stack real-time multiplayer board game (Richup.io clone).
 - Wrap expensive renders in `React.memo`. Wrap callbacks in `useCallback` when passed as props.
 
 ```tsx
-// ✅ Good
+// Good
 interface PlayerTokenProps {
   playerId: string;
   position: number;
@@ -93,7 +93,7 @@ const PlayerToken: React.FC<PlayerTokenProps> = ({ playerId, position, color, is
 
 export default PlayerToken;
 
-// ❌ Bad
+// Bad
 const PlayerToken = (props: any) => { ... }
 ```
 
@@ -103,7 +103,7 @@ const PlayerToken = (props: any) => { ... }
 - The `useWebSocket` hook owns the WS connection lifecycle. Do not create WebSocket instances anywhere else.
 
 ```ts
-// ✅ useWebSocket pattern
+// useWebSocket pattern
 export const useWebSocket = (roomId: string) => {
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -132,7 +132,7 @@ export const useWebSocket = (roomId: string) => {
 - Use the `VITE_API_BASE_URL` env variable exclusively. Never hardcode `localhost:8000`.
 
 ```ts
-// ✅ lib/api.ts pattern
+// lib/api.ts pattern
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const createRoom = async (): Promise<{ room_id: string }> => {
@@ -156,7 +156,7 @@ export type ServerMessage =
 
 ---
 
-## 🐍 Backend Rules
+## Backend Rules
 
 ### General
 - **All game rules are enforced server-side.** Never trust client input.
@@ -171,7 +171,7 @@ export type ServerMessage =
 - Add `__str__` method to every model.
 
 ```python
-# ✅ Good model
+# Good model
 import uuid
 from django.db import models
 
@@ -199,7 +199,7 @@ class Room(models.Model):
 - Broadcast game state changes after every action using `self.channel_layer.group_send`.
 
 ```python
-# ✅ Consumer pattern
+# Consumer pattern
 class GameConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         self.room_code = self.scope['url_route']['kwargs']['room_code']
@@ -236,7 +236,7 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
 ---
 
-## 🔌 WebSocket Protocol Rules
+## WebSocket Protocol Rules
 
 - Every message (client → server and server → client) must have a `type: string` field.
 - Server messages that change game state must always include the full updated `game_state` object, not just a delta.
@@ -246,7 +246,7 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
 ---
 
-## 🐳 Docker & Environment Rules
+## Docker & Environment Rules
 
 - Never commit `.env` files. Only commit `.env.example` with placeholder values.
 - All service names in `docker-compose.yml` must match what the backend expects in env vars (e.g., `redis`, `db`).
@@ -255,7 +255,7 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
 ---
 
-## 🚀 Git & Commit Rules
+## Git & Commit Rules
 
 - Branch naming: `feat/<short-description>`, `fix/<short-description>`, `chore/<short-description>`
 - Commit messages follow Conventional Commits:
@@ -272,18 +272,18 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
 ## ⚠️ Things to Never Do
 
-- ❌ Never trust client-sent `player_id` — always derive it from the authenticated session/token.
-- ❌ Never store game state only in memory (Django process restarts will wipe it) — persist to Redis or DB.
-- ❌ Never put secrets in code or version control.
-- ❌ Never use `any` in TypeScript.
-- ❌ Never perform game actions inside React components — dispatch WS messages and let the server respond.
-- ❌ Never write business logic in Django views — use the services layer.
-- ❌ Never expose stack traces to API clients in production.
-- ❌ Never skip serializer validation in consumers or views.
-- ❌ Never block the async event loop in Django Channels consumers (no synchronous DB calls — use `database_sync_to_async`).
+- Never trust client-sent `player_id` — always derive it from the authenticated session/token.
+- Never store game state only in memory (Django process restarts will wipe it) — persist to Redis or DB.
+- Never put secrets in code or version control.
+- Never use `any` in TypeScript.
+- Never perform game actions inside React components — dispatch WS messages and let the server respond.
+- Never write business logic in Django views — use the services layer.
+- Never expose stack traces to API clients in production.
+- Never skip serializer validation in consumers or views.
+- Never block the async event loop in Django Channels consumers (no synchronous DB calls — use `database_sync_to_async`).
 
 ```python
-# ✅ Correct async DB access in consumers
+# Correct async DB access in consumers
 from channels.db import database_sync_to_async
 
 class GameConsumer(AsyncJsonWebsocketConsumer):

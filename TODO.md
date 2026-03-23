@@ -13,16 +13,16 @@ Progress tracker for building a Richup.io clone. Tasks are grouped by milestone 
 - [x] Room creation endpoint (`POST /api/v1/rooms/create/`)
 - [x] Basic WebSocket echo server
 - [x] Pydantic models for messages
-- [ ] **Migrate backend from FastAPI → Django + Django Channels**
-  - [ ] Set up Django project with `config/settings/` split (base, dev, prod)
-  - [ ] Install and configure Django Channels 4 + Daphne
-  - [ ] Configure Redis channel layer (`channels_redis`)
-  - [ ] Write `asgi.py` with `ProtocolTypeRouter`
-  - [ ] Re-implement room creation as a DRF `APIView` or `ViewSet`
-  - [ ] Re-implement WebSocket consumer as a `JsonWebsocketConsumer`
-  - [ ] Set up PostgreSQL with `django-environ` for DB URL parsing
-  - [ ] Initial Django migrations
-  - [ ] Health check endpoint
+- [x] **Migrate backend from FastAPI → Django + Django Channels**
+  - [x] Set up Django project with `config/settings/` split (base, dev, prod)
+  - [x] Install and configure Django Channels 4 + Daphne
+  - [x] Configure Redis channel layer (`channels_redis`)
+  - [x] Write `asgi.py` with `ProtocolTypeRouter`
+  - [x] Re-implement room creation as a DRF `APIView` or `ViewSet`
+  - [x] Re-implement WebSocket consumer as a `JsonWebsocketConsumer`
+  - [x] Set up PostgreSQL with `django-environ` for DB URL parsing
+  - [x] Initial Django migrations
+  - [x] Health check endpoint
 
 ### Frontend
 - [x] Vite + React + TypeScript scaffolding
@@ -31,9 +31,9 @@ Progress tracker for building a Richup.io clone. Tasks are grouped by milestone 
 - [x] Room page with WebSocket connection and loading state
 - [x] Tailwind CSS + shadcn/ui setup
 - [x] Framer Motion animations
-- [ ] Move hardcoded rules to a config/constants file
-- [ ] Remove unused `Room` import in `Landing.tsx`
-- [ ] Add `.env.example` file
+- [x] Move hardcoded rules to a config/constants file
+- [x] Remove unused `Room` import in `Landing.tsx`
+- [x] Add `.env.example` file
 
 ### Infrastructure
 - [ ] Docker Compose for local dev (frontend, backend, redis, postgres)
@@ -47,64 +47,64 @@ Progress tracker for building a Richup.io clone. Tasks are grouped by milestone 
 ## Milestone 1 — Lobby & Room Management
 
 ### Backend
-- [ ] `Room` Django model (id, code, status, max_players, created_at, host)
-- [ ] Room status enum: `waiting`, `in_progress`, `finished`
-- [ ] `GET /api/v1/rooms/` — list open rooms (paginated)
-- [ ] `GET /api/v1/rooms/<room_id>/` — get single room info
-- [ ] `POST /api/v1/rooms/create/` — create room (persist to DB)
-- [ ] `POST /api/v1/rooms/<room_id>/join/` — join room
-- [ ] Room capacity enforcement (max 6 players)
-- [ ] Room expiry / cleanup (rooms idle > 30 min)
-- [ ] WebSocket consumer: broadcast player join/leave events to room group
-- [ ] WebSocket consumer: send current room state on connect
+- [x] `Room` Django model (id, code, status, max_players, created_at, host)
+- [x] Room status enum: `waiting`, `in_progress`, `finished`
+- [x] `GET /api/v1/rooms/` — list open rooms (paginated)
+- [x] `GET /api/v1/rooms/<room_id>/` — get single room info
+- [x] `POST /api/v1/rooms/create/` — create room (persist to DB)
+- [x] `POST /api/v1/rooms/<room_id>/join/` — join room
+- [x] Room capacity enforcement (max 6 players)
+- [x] Room expiry / cleanup (rooms idle > 30 min)
+- [x] WebSocket consumer: broadcast player join/leave events to room group
+- [x] WebSocket consumer: send current room state on connect
 
 ### Frontend
-- [ ] "All Rooms" page — fetches and lists open rooms
-- [ ] "Private Room" flow — creates invite-only room, generates shareable URL
-- [ ] Lobby page (inside `/room/:roomId` before game starts)
-  - [ ] Player list with avatars/colors
-  - [ ] Ready up button
-  - [ ] Host "Start Game" button (active only when all ready)
-  - [ ] Copy room link button
-  - [ ] Live player count via WebSocket
-- [ ] `useWebSocket` custom hook (encapsulate WS lifecycle, auto-reconnect)
-- [ ] Connection status indicator component (green dot / spinner)
-- [ ] Toast notifications for join/leave events
+- [x] "All Rooms" page — fetches and lists open rooms
+- [x] "Private Room" flow — creates invite-only room, generates shareable URL
+- [x] Lobby page (inside `/room/:roomId` before game starts)
+  - [x] Player list with avatars/colors
+  - [x] Ready up button
+  - [x] Host "Start Game" button (active only when all ready)
+  - [x] Copy room link button
+  - [x] Live player count via WebSocket
+- [x] `useWebSocket` custom hook (encapsulate WS lifecycle, auto-reconnect)
+- [x] Connection status indicator component (green dot / spinner)
+- [x] Toast notifications for join/leave events
 
 ---
 
 ## Milestone 2 — Core Game Board
 
 ### Backend
-- [ ] `GameState` model / in-memory structure:
-  - Board tiles (40 tiles, typed: property, railroad, utility, tax, chance, community chest, go, jail, free parking, go-to-jail)
-  - Player list with position, balance, owned properties, jail status
-  - Current player index
-  - Dice values
-  - Game phase (waiting, rolling, buying, paying, etc.)
-- [ ] `POST /api/v1/game/<room_id>/start/` — initialize game state, broadcast to room
-- [ ] Game engine actions (server-authoritative):
-  - [ ] `roll_dice` — generate random 2d6, move player, detect doubles
-  - [ ] `buy_property` — validate ownership, deduct balance
-  - [ ] `pay_rent` — calculate rent, transfer funds
-  - [ ] `pass_turn` — advance current player index
-  - [ ] `go_to_jail` — move player to jail tile, set jail status
-  - [ ] `pay_jail_fine` — deduct $50, clear jail status
-  - [ ] `use_jail_card` — consume get-out-of-jail-free card
-  - [ ] `collect_go` — award $200 when passing Go
-- [ ] Broadcast full `game_state` delta after every action
-- [ ] Turn timer (60s per turn, auto-pass on timeout)
+- [x] `GameState` model / in-memory structure:
+  - [x] Board tiles (40 tiles, typed: property, railroad, utility, tax, chance, community chest, go, jail, free parking, go-to-jail)
+  - [x] Player list with position, balance, owned properties, jail status
+  - [x] Current player index
+  - [x] Dice values
+  - [x] Game phase (waiting, rolling, buying, paying, etc.)
+- [x] `POST /api/v1/game/<room_id>/start/` — initialize game state, broadcast to room
+- [x] Game engine actions (server-authoritative):
+  - [x] `roll_dice` — generate random 2d6, move player, detect doubles
+  - [x] `buy_property` — validate ownership, deduct balance
+  - [x] `pay_rent` — calculate rent, transfer funds
+  - [x] `pass_turn` — advance current player index
+  - [x] `go_to_jail` — move player to jail tile, set jail status
+  - [x] `pay_jail_fine` — deduct $50, clear jail status
+  - [x] `use_jail_card` — consume get-out-of-jail-free card
+  - [x] `collect_go` — award $200 when passing Go
+- [x] Broadcast full `game_state` delta after every action
+- [x] Turn timer (60s per turn, auto-pass on timeout)
 
 ### Frontend
-- [ ] Game board component (SVG or CSS grid, 40 tiles in a square)
-  - [ ] Tile component (name, price, color group, owner indicator)
-  - [ ] Player token component (colored circle, smooth move animation)
-  - [ ] Property color groups displayed correctly
-- [ ] Dice component (animated roll, show result)
-- [ ] Player info panel (balance, owned properties, current turn indicator)
-- [ ] Action panel (context-sensitive buttons: Roll / Buy / Pass / Pay Rent)
-- [ ] Game log / event feed (scrollable list of recent events)
-- [ ] Turn timer UI (countdown bar)
+- [x] Game board component (SVG or CSS grid, 40 tiles in a square)
+  - [x] Tile component (name, price, color group, owner indicator)
+  - [x] Player token component (colored circle, smooth move animation)
+  - [x] Property color groups displayed correctly
+- [x] Dice component (animated roll, show result)
+- [x] Player info panel (balance, owned properties, current turn indicator)
+- [x] Action panel (context-sensitive buttons: Roll / Buy / Pass / Pay Rent)
+- [x] Game log / event feed (scrollable list of recent events)
+- [x] Turn timer UI (countdown bar)
 
 ---
 

@@ -1,5 +1,6 @@
 import { Landing } from '@/pages/Landing';
-import { Room } from '@/pages/Room'; // Import the new component
+import { Room } from '@/pages/Room';
+import { AllRooms } from '@/pages/AllRooms';
 
 type RouteConfig = {
     path: string;
@@ -16,6 +17,10 @@ const routes: RouteConfig[] = [
     {
         path: '/room/:roomId', // Dynamic route for game rooms
         element: <Room />,
+    },
+    {
+        path: '/rooms',
+        element: <AllRooms />,
     },
 ];
 

@@ -1,159 +1,196 @@
-import React, { useEffect, useState } from 'react'; // RE-ADDED: useState
+import React, { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-// NEW: Import Lightbulb icon for the Tip
-import { Lightbulb } from 'lucide-react'; 
+import { toast } from 'sonner';
 
+import { ActionPanel } from '@/components/game/ActionPanel';
+import { DicePanel } from '@/components/game/DicePanel';
+import { GameBoard } from '@/components/game/GameBoard';
+import { GameLog } from '@/components/game/GameLog';
+import { PlayerInfoPanel } from '@/components/game/PlayerInfoPanel';
+import { TurnTimer } from '@/components/game/TurnTimer';
+import { Button } from '@/components/ui/button';
+import { ConnectionStatus } from '@/components/lobby/ConnectionStatus';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import type { RoomStatePayload, ServerMessage } from '@/types/ws';
 
-// Use a constant for the API base URL.
-// In a real Vite app, this would be set in a .env file (e.g., VITE_API_BASE_URL=http://localhost:8000)
-// For simplicity in this example, we assume the backend is available at the current host's /api/v1 path.
-// If you must hardcode, use 'http://localhost:8000' for local dev:
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || window.location.origin;
-
-// Helper to clean up the base URL for consistency
-const cleanBaseUrl = (url: string) => url.replace(/\/$/, '');
-
-const getWsUrl = (roomId: string): string => {
-    // Determine the protocol (ws or wss) from the HTTP URL's protocol (http or https)
-    const protocol = cleanBaseUrl(API_BASE_URL).startsWith('https') ? 'wss:' : 'ws:';
-
-    // Extract the host part and remove the protocol
-    const hostAndPort = cleanBaseUrl(API_BASE_URL).replace(/^https?:\/\//, '');
-
-    // Ensure the path is correct: /api/v1/ws/game/
-    return `${protocol}//${hostAndPort}/api/v1/ws/game/?room_id=${roomId}`;
+const AVATAR_COLOR_CLASSES: Record<string, string> = {
+    orange: 'bg-orange-400',
+    green: 'bg-green-400',
+    blue: 'bg-blue-400',
+    red: 'bg-red-400',
+    purple: 'bg-purple-400',
+    yellow: 'bg-yellow-400',
 };
-
-// SVG Component (The dice icon provided)
-const GameIcon = ({ className = 'w-16 h-16' }) => (
-    <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        width="32" 
-        height="32" 
-        viewBox="0 0 24 24"
-        className={className}
-    >
-        <path fill="currentColor" d="M19 5v14H5V5zM5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm11.5 12a1.5 1.5 0 1 1-3 0a1.5 1.5 0 0 1 3 0M9 16.5a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3M10.5 9a1.5 1.5 0 1 1-3 0a1.5 1.5 0 0 1 3 0m4.5 1.5a1.5 1.5 0 1 0 0-3a1.5 1.5 0 0 0 0 3"/>
-    </svg>
-);
-
 
 export const Room: React.FC = () => {
     const { roomId } = useParams<{ roomId: string }>();
-    
-    // RE-ADDED: wsStatus state to manage loading/connection status for UI display
-    const [wsStatus, setWsStatus] = useState<'Connecting...' | 'Connected' | 'Disconnected'>(
-        'Connecting...',
-    );
+    const [roomState, setRoomState] = useState<RoomStatePayload | null>(null);
+    const [readyPlayers, setReadyPlayers] = useState<Record<string, boolean>>({});
+    const [startingGame, setStartingGame] = useState(false);
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
-    useEffect(() => {
-        if (!roomId) return;
+    const nickname = useMemo(() => {
+        const existingNickname = localStorage.getItem('getrich_nickname');
+        if (existingNickname) return existingNickname;
+        const generated = `guest-${Math.floor(Math.random() * 10000)
+            .toString()
+            .padStart(4, '0')}`;
+        localStorage.setItem('getrich_nickname', generated);
+        return generated;
+    }, []);
 
-        const wsUrl = getWsUrl(roomId);
-        console.log(`[Room ${roomId}] Attempting to connect to: ${wsUrl}`);
-
-        const ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-            setWsStatus('Connected'); // SET STATUS
-            console.log(`[Room ${roomId}] SERVER: Connection established.`);
-
-            const clientMsg = JSON.stringify({ message: `Hello from Room ${roomId}` });
-            ws.send(clientMsg);
-            console.log(`[Room ${roomId}] CLIENT: Sent initial message: '${clientMsg}'`);
-        };
-
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'echo') {
-                    console.log(`[Room ${roomId}] SERVER ECHO: ${data.server_response}`);
-                } else if (data.type === 'status') {
-                    console.log(`[Room ${roomId}] SERVER STATUS: ${data.message}`);
-                } else {
-                    console.log(`[Room ${roomId}] SERVER RAW: ${event.data}`);
-                }
-            } catch (error) {
-                console.log(`[Room ${roomId}] SERVER RAW: ${event.data}`);
-            }
-        };
-
-        ws.onclose = () => {
-            setWsStatus('Disconnected'); // SET STATUS
-            console.log(`[Room ${roomId}] SERVER: Connection closed.`);
-        };
-
-        ws.onerror = (error) => {
-            // NOTE: setWsStatus is not strictly needed here as onclose usually follows,
-            // but we log the error for immediate feedback.
-            console.error(`[Room ${roomId}] WebSocket Error:`, error);
-            console.log(`[Room ${roomId}] ERROR: Check console for details.`);
-        };
-
-        // Cleanup: Close the connection when the component unmounts
-        return () => {
-            if (ws.readyState === 1) {
-                ws.close();
-                console.log(`[Room ${roomId}] Cleanup: WebSocket closed.`);
-            }
-        };
-    }, [roomId]);
-
-    const pageAnimation = {
-        initial: { opacity: 0, y: 10 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.5 },
+    const handleMessage = (message: ServerMessage) => {
+        if (message.type === 'room_state') {
+            setRoomState(message.game_state);
+            return;
+        }
+        if (message.type === 'game_state') {
+            setRoomState(message.game_state);
+            return;
+        }
+        if (message.type === 'player_joined') {
+            setRoomState(message.game_state);
+            toast.success(`${message.player.nickname} joined the room`);
+            return;
+        }
+        if (message.type === 'player_left') {
+            setRoomState(message.game_state);
+            toast.info(`${message.player.nickname} left the room`);
+            return;
+        }
+        if (message.type === 'error') {
+            toast.error(message.message);
+        }
     };
 
-    const loadingContent = (
-        <div className="flex flex-col items-center justify-center space-y-8">
-            {/* SVG with animation for dice rolling effect */}
-            <motion.div
-                initial={{ rotate: 0 }}
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                className="text-gray-600" // Similar color to the image's spinner
-            >
-                <GameIcon className="w-16 h-16" />
-            </motion.div>
-            
-            <h1 className="text-3xl font-light text-gray-200">
-                Loading game...
-            </h1>
-            
-            <div className="text-center text-sm text-gray-400 mt-4">
-                <span className="flex items-center justify-center text-gray-500">
-                    <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
-                    Tip | New updates are announced on Richup's Discord server
-                </span>
-            </div>
-        </div>
-    );
+    const { connectionState, send } = useWebSocket({
+        roomId: roomId ?? '',
+        nickname,
+        onMessage: handleMessage,
+    });
 
-    const connectedContent = (
-        <div className="flex flex-col items-center justify-center space-y-4">
-            <h1 className="text-4xl font-extrabold text-green-400">
-                Connected to Room {roomId}
-            </h1>
-            <p className="text-xl text-gray-400">
-                Game has loaded. Check your browser console for WebSocket activity.
-            </p>
-        </div>
-    );
-    
-    // Choose which content to display based on connection status
-    const displayContent = wsStatus === 'Connecting...' ? loadingContent : connectedContent;
+    const toggleReady = () => {
+        setReadyPlayers((prev) => ({ ...prev, [nickname]: !prev[nickname] }));
+        send({ message: `${nickname} toggled ready` });
+    };
+
+    const allPlayersReady =
+        !!roomState?.players.length &&
+        roomState.players.every((player) => readyPlayers[player.nickname]);
+
+    const copyRoomLink = async () => {
+        if (!roomId) return;
+        await navigator.clipboard.writeText(`${window.location.origin}/room/${roomId}`);
+        toast.success('Room link copied');
+    };
+
+    const handleStartGame = async () => {
+        if (!roomId) return;
+        setStartingGame(true);
+        try {
+            const response = await fetch(`${apiBaseUrl}/api/v1/game/${roomId}/start/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            const data = (await response.json()) as {
+                game_state?: RoomStatePayload;
+                detail?: string;
+            };
+            if (!response.ok) {
+                throw new Error(data.detail ?? `HTTP ${response.status}`);
+            }
+            if (data.game_state) {
+                setRoomState(data.game_state);
+            }
+            toast.success('Game started');
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to start game';
+            toast.error(message);
+        } finally {
+            setStartingGame(false);
+        }
+    };
+
+    const handleGameAction = (actionType: string) => {
+        send({ type: actionType });
+    };
 
     return (
-        <motion.div
-            // Dark purple/black background for 'Room' component to match image aesthetic
-            className="min-h-screen p-8 bg-[#18121a] text-gray-100 flex items-center justify-center" 
-            initial={pageAnimation.initial}
-            animate={pageAnimation.animate}
-            transition={pageAnimation.transition}
-        >
-            {displayContent}
-        </motion.div>
+        <div className="min-h-screen bg-gray-900 px-4 py-8 text-gray-100">
+            <div className="mx-auto max-w-4xl rounded-xl border border-gray-700 bg-gray-800 p-6">
+                <div className="mb-6 flex items-center justify-between">
+                    <h1 className="text-2xl font-bold">Lobby - Room {roomId}</h1>
+                    <ConnectionStatus state={connectionState} />
+                </div>
+
+                <p className="mb-4 text-sm text-gray-400">
+                    You are <span className="font-semibold text-gray-200">{nickname}</span>
+                </p>
+
+                <div className="mb-6 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
+                    <p className="text-sm text-gray-300">
+                        Players: {roomState?.player_count ?? 0}/{roomState?.max_players ?? 0}
+                    </p>
+                    <div className="mt-3 space-y-2">
+                        {roomState?.players.map((player) => (
+                            <div
+                                key={player.nickname}
+                                className="flex items-center justify-between rounded-md border border-gray-700 px-3 py-2"
+                            >
+                                <span className="flex items-center gap-2">
+                                    <span
+                                        className={`h-3 w-3 rounded-full ${AVATAR_COLOR_CLASSES[player.avatar_color] ?? 'bg-gray-400'}`}
+                                    />
+                                    {player.nickname}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                    {readyPlayers[player.nickname] ? 'Ready' : 'Not ready'}
+                                </span>
+                            </div>
+                        )) ?? <p className="text-gray-500">Waiting for players...</p>}
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                    <Button onClick={toggleReady}>
+                        {readyPlayers[nickname] ? 'Unready' : 'Ready up'}
+                    </Button>
+                    <Button variant="outline" onClick={copyRoomLink}>
+                        Copy room link
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        disabled={!allPlayersReady || startingGame}
+                        onClick={handleStartGame}
+                    >
+                        Start Game
+                    </Button>
+                </div>
+
+                {roomState?.board?.length ? (
+                    <div className="mt-8 space-y-4">
+                        <GameBoard board={roomState.board} players={roomState.players} />
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <DicePanel dice={roomState.dice} />
+                            <TurnTimer turnDeadline={roomState.turn_deadline} />
+                            <PlayerInfoPanel
+                                players={roomState.players}
+                                currentPlayerIndex={roomState.current_player_index}
+                            />
+                            <ActionPanel
+                                onAction={handleGameAction}
+                                disabled={
+                                    roomState.players[roomState.current_player_index]?.nickname !==
+                                    nickname
+                                }
+                            />
+                        </div>
+                        <GameLog entries={roomState.log} />
+                    </div>
+                ) : null}
+            </div>
+        </div>
     );
 };

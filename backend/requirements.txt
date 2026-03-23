@@ -1,3 +1,7 @@
-fastapi
-uvicorn
-pydantic
+django
+djangorestframework
+channels
+daphne
+channels-redis
+django-environ
+psycopg2-binary
